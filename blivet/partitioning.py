@@ -839,7 +839,7 @@ def updateExtendedPartitions(storage, disks):
         # moment to simplify things
         storage.devicetree._addDevice(device)
 
-def doPartitioning(storage):
+def doPartitioning(storage, sort_func=partitionCompare):
     """ Allocate and grow partitions.
 
         When this function returns without error, all PartitionDevice
@@ -884,7 +884,7 @@ def doPartitioning(storage):
     removeNewPartitions(disks, partitions)
     free = getFreeRegions(disks)
     try:
-        allocatePartitions(storage, disks, partitions, free)
+        allocatePartitions(storage, disks, partitions, free, sort_func)
         growPartitions(disks, partitions, free, size_sets=storage.size_sets)
     except Exception:
         raise
@@ -923,7 +923,7 @@ def doPartitioning(storage):
                                         % {"format": part.format.name, "minSize": part.format.minSize,
                                             "maxSize": part.format.maxSize})
 
-def allocatePartitions(storage, disks, partitions, freespace):
+def allocatePartitions(storage, disks, partitions, freespace, sort_func=partitionCompare):
     """ Allocate partitions based on requested features.
 
         :param storage: a Blivet instance
@@ -934,6 +934,8 @@ def allocatePartitions(storage, disks, partitions, freespace):
         :type partitions: list of :class:`~.devices.PartitionDevice`
         :param freespace: list of free regions on disks
         :type freespace: list of :class:`parted.Geometry`
+        :param sort_func: function to sort partitions
+        :type sort_func: sort function
         :raises: :class:`~.errors.PartitioningError`
         :returns: :const:`None`
 
@@ -952,7 +954,9 @@ def allocatePartitions(storage, disks, partitions, freespace):
                  ["%s(id %d)" % (p.name, p.id) for p in partitions]))
 
     new_partitions = [p for p in partitions if not p.exists]
-    new_partitions.sort(cmp=partitionCompare)
+
+    if sort_func:
+        new_partitions.sort(cmp=sort_func)
 
     # the following dicts all use device path strings as keys
     disklabels = {}     # DiskLabel instances for each disk
